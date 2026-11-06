@@ -1,8 +1,8 @@
-# AndesB2B 🚀
+# AndesB2B 
 
 Plataforma transaccional B2B para la conexión comercial y logística entre pequeñas y medianas empresas (Pymes). Proyecto de Título - IPLACEX.
 
-## 🛠 Stack Tecnológico
+## Stack Tecnológico
 * **Frontend:** HTML5, CSS, JavaScript
 * **Backend:** Java 21, Spring Boot 4.1.2, Spring Security
 * **Base de Datos:** PostgreSQL 18
