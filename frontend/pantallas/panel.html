@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Operativo - AndesB2B</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div id="app-container" class="app-layout">
+        <!-- BARRA LATERAL -->
+        <aside class="sidebar">
+            <div class="brand">
+                <h2>ANDESB2B</h2>
+                <span>Marketplace B2B para Pymes</span>
+            </div>
+
+            <nav class="nav-menu">
+                <div class="nav-group">
+                    <span class="nav-title">PRINCIPAL</span>
+                    <button class="nav-link active" onclick="cambiarModulo('dashboard', this)">Panel General</button>
+                </div>
+
+                <div id="menu-compras" class="nav-group">
+                    <span class="nav-title">MÓDULO DE COMPRAS</span>
+                    <button class="nav-link" onclick="cambiarModulo('explorar', this)">Explorar catálogo</button>
+                    <button class="nav-link" onclick="cambiarModulo('mis-pedidos', this)">Mis pedidos</button>
+                </div>
+
+                <div id="menu-ventas" class="nav-group">
+                    <span class="nav-title">MÓDULO DE VENTAS</span>
+                    <button class="nav-link" onclick="cambiarModulo('gestionar-catalogo', this)">Gestionar catálogo</button>
+                    <button class="nav-link" onclick="cambiarModulo('pedidos-recibidos', this)">Pedidos recibidos</button>
+                    <button class="nav-link" onclick="cambiarModulo('estado-cuenta', this)">Estado de cuenta</button>
+                </div>
+
+                <div id="menu-admin" class="nav-group">
+                    <span class="nav-title">ADMINISTRACIÓN</span>
+                    <button class="nav-link" onclick="cambiarModulo('datos-empresa', this)">Datos empresa</button>
+                    <button class="nav-link" onclick="cambiarModulo('usuarios', this)">Gestionar usuarios</button>
+                    <button class="nav-link" onclick="cambiarModulo('auditoria', this)">Auditoría de precios</button>
+                </div>
+            </nav>
+
+            <div class="user-card">
+                <strong id="info-empresa">Empresa</strong>
+                <small id="info-rut">RUT</small>
+                <span id="info-usuario" class="badge-role">Usuario / Rol</span>
+                <button class="btn btn-danger btn-sm full-width" style="margin-top:8px;" onclick="cerrarSesion()">Cerrar Sesión</button>
+            </div>
+        </aside>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <small id="breadcrumb-modulo" class="breadcrumb-text">AndesB2B › Principal</small>
+                    <h2 id="titulo-modulo">Panel General - Resumen Operativo y Financiero</h2>
+                </div>
+                <!-- Visible únicamente para Administrador y Vendedor -->
+                <div id="top-comision-box" class="comision-pill">
+                    Comisión Mes Acumulada (3%): <strong id="top-comision">$0 CLP</strong>
+                </div>
+            </header>
+
+            <div id="app-alert" class="alert hidden"></div>
+
+            <!-- PANEL GENERAL (DASHBOARD) -->
+            <section id="mod-dashboard" class="modulo">
+                <div class="kpi-grid">
+                    <div class="card kpi-card kpi-border-blue">
+                        <span class="kpi-label">VENTAS DEL MES (CONFIRMADAS)</span>
+                        <h3 id="kpi-ventas">$0 CLP</h3>
+                        <small class="text-success">Subtotal de insumos liquidados en plataforma</small>
+                    </div>
+                    <div class="card kpi-card kpi-border-amber">
+                        <span class="kpi-label">PEDIDOS ACTIVOS EN FLUJO</span>
+                        <h3 id="kpi-pedidos">0 Pedidos</h3>
+                        <small id="kpi-pedidos-detalle">Operaciones de compra y venta</small>
+                    </div>
+                    <!-- Visible únicamente para Administrador y Vendedor -->
+                    <div id="kpi-card-comision" class="card kpi-card kpi-danger">
+                        <span class="kpi-label">COMISIÓN ACUMULADA (3%)</span>
+                        <h3 id="kpi-comision">$0 CLP</h3>
+                        <small>Calculada solo sobre productos (envío exento)</small>
+                    </div>
+                </div>
+
+                <div class="dashboard-split">
+                    <div class="card">
+                        <div class="card-header-flex">
+                            <h3>Últimos Movimientos y Pedidos B2B</h3>
+                            <span class="badge badge-info">Tiempo Real</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>PEDIDO</th>
+                                        <th>CONTRAPARTE</th>
+                                        <th>TIPO</th>
+                                        <th>SUBTOTAL PROD.</th>
+                                        <th>ESTADO BPMN</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabla-ultimos-movimientos"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Alertas y Tareas Operativas</h3>
+                        <div id="lista-alertas-dashboard" class="alert-list"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Resumen Corporativo de la Sesión</h3>
+                    <p id="resumen-empresa-datos" class="text-muted" style="margin-bottom:0;"></p>
+                </div>
+            </section>
+
+            <!-- EXPLORAR CATÁLOGO CON CARRITO MULTI-PRODUCTO POR PROVEEDOR -->
+            <section id="mod-explorar" class="modulo hidden">
+                <div id="barra-carrito-resumen" class="cart-banner hidden">
+                    <div>
+                        <strong>Orden en preparación - Proveedor: <span id="cart-proveedor-nombre">-</span></strong>
+                        <small id="cart-contador-items" style="display:block;">0 insumos seleccionados</small>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <strong id="cart-subtotal-banner" style="font-size:1.1rem;">$0 CLP</strong>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('card-solicitar-pedido').scrollIntoView({behavior:'smooth'})">Ver Carrito y Emitir</button>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="vaciarCarrito()">Vaciar</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="filter-bar-4">
+                        <input type="text" id="filtro-texto" placeholder="Buscar por nombre de insumo o código SKU..." oninput="renderizarCatalogo()">
+                        <select id="filtro-categoria" onchange="renderizarCatalogo()">
+                            <option value="">Todas las categorías</option>
+                        </select>
+                        <select id="filtro-region" onchange="renderizarCatalogo()">
+                            <option value="">Todas las regiones</option>
+                            <option value="Los Lagos">Los Lagos</option>
+                            <option value="Biobío">Biobío</option>
+                            <option value="Araucanía">La Araucanía</option>
+                            <option value="Metropolitana">Metropolitana</option>
+                            <option value="Valparaíso">Valparaíso</option>
+                        </select>
+                        <select id="filtro-orden" onchange="renderizarCatalogo()">
+                            <option value="asc">Precio: Menor a Mayor</option>
+                            <option value="desc">Precio: Mayor a Menor</option>
+                        </select>
+                    </div>
+                    <div id="grid-catalogo" class="product-grid"></div>
+                </div>
+
+                <div id="card-solicitar-pedido" class="card hidden">
+                    <div class="card-header-flex">
+                        <h3>Carrito de Solicitud B2B - Proveedor: <span id="cart-titulo-proveedor"></span></h3>
+                        <span id="cart-origen-proveedor" class="badge badge-info">Origen: -</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>INSUMO</th>
+                                    <th>PRECIO UNIT. FIJO</th>
+                                    <th>CANTIDAD</th>
+                                    <th>SUBTOTAL LÍNEA</th>
+                                    <th>QUITAR</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-carrito-items"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- DATOS LOGÍSTICOS DE RECEPCIÓN Y ENVÍO -->
+                    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:16px; margin-top:16px;">
+                        <div class="card-header-flex" style="margin-bottom:10px;">
+                            <h4 style="margin:0;">Datos de Despacho y Contacto de Recepción</h4>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="usarDireccionMiPyme()">Usar dirección registrada de mi Pyme
+                            </button>
+                        </div>
+                        <div class="form-grid-3">
+                            <div>
+                                <label>Nombre de quien recibe *</label>
+                                <input type="text" id="cart-nombre-receptor" required placeholder="Ej: María Soto (Jefa de Bodega)">
+                            </div>
+                            <div>
+                                <label>Teléfono de contacto *</label>
+                                <input type="text" id="cart-telefono-contacto" required placeholder="Ej: +56 9 8765 4321">
+                            </div>
+                            <div>
+                                <label>Dirección de entrega (Casa Matriz u Obra) *</label>
+                                <input type="text" id="cart-direccion-destino" required placeholder="Ej: Av. Diego Portales 1240, Puerto Montt">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cart-footer">
+                        <div>
+                            <span>Subtotal Neto Productos: </span>
+                            <strong id="cart-total-final" style="font-size:1.3rem; color:#0284c7;">$0 CLP</strong>
+                            <small style="display:block; color:#64748b;">* El costo y tiempo estimado de envío serán cotizados por el proveedor según tu dirección de entrega.</small>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button type="button" class="btn btn-outline" onclick="vaciarCarrito()">Vaciar Carrito</button>
+                            <button type="button" class="btn btn-success" onclick="emitirPedido()">Confirmar y Solicitar Cotización de Envío</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MIS PEDIDOS (COMPRADOR) -->
+            <section id="mod-mis-pedidos" class="modulo hidden">
+                <div class="card">
+                    <h3>Flujo de Estados del Pedido B2B (Vista Comprador)</h3>
+                    <div class="bpmn-stepper">
+                        <div class="step-item active">1. COTIZANDO_ENVIO</div>
+                        <div class="step-item">2. COMPRA_CONFIRMADA</div>
+                        <div class="step-item">3. EN_TRANSITO</div>
+                        <div class="step-item">4. FINALIZADO</div>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID PEDIDO</th>
+                                    <th>EMPRESA PROVEEDORA</th>
+                                    <th>PRODUCTO(S) Y CANTIDAD</th>
+                                    <th>MEDIO TRANSPORTE</th>
+                                    <th>SUBTOTAL PROD.</th>
+                                    <th>COSTO ENVÍO</th>
+                                    <th>TRACKING</th>
+                                    <th>ESTADO</th>
+                                    <th>ACCIÓN COMPRADOR</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-mis-pedidos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GESTIONAR CATÁLOGO (VENDEDOR) CON FORMULARIO DESPLEGABLE BAJO DEMANDA -->
+            <section id="mod-gestionar-catalogo" class="modulo hidden">
+                <!-- Formulario oculto por defecto hasta hacer clic en "+ Nuevo Producto" o "Editar" -->
+                <div id="card-form-producto" class="card hidden">
+                    <div class="card-header-flex">
+                        <h3 id="titulo-form-producto">Registrar Nuevo Producto</h3>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="cerrarFormProducto()">Cerrar</button>
+                    </div>
+                    <form id="form-producto" onsubmit="guardarProducto(event)">
+                        <input type="hidden" id="prod-id">
+                        <div class="form-grid-3">
+                            <div>
+                                <label>Código SKU (Único)</label>
+                                <input type="text" id="prod-sku" required placeholder="Ej: SKU-401">
+                            </div>
+                            <div>
+                                <label>Nombre del Producto</label>
+                                <input type="text" id="prod-nombre" required placeholder="Ej: Soldadora Inverter 200A">
+                            </div>
+                            <div>
+                                <label>Categoría Industrial</label>
+                                <select id="prod-categoria" required></select>
+                            </div>
+                            <div>
+                                <label>Precio Unitario Neto ($ CLP)</label>
+                                <input type="number" id="prod-precio" min="0" step="1" required placeholder="Ej: 145000">
+                            </div>
+                            <div>
+                                <label>Stock Disponible (0 por defecto)</label>
+                                <input type="number" id="prod-stock" min="0" placeholder="0 por defecto si se deja vacío">
+                            </div>
+                            <div>
+                                <label>Estado de Publicación</label>
+                                <select id="prod-visible">
+                                    <option value="false">Borrador (Oculto en catálogo)</option>
+                                    <option value="true">Visible en Catálogo B2B</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label>Imágenes del Producto (Adjuntar máximo 3 fotos desde el equipo - JPG, PNG o WEBP)</label>
+                            <input type="file" id="prod-img-files" accept="image/*" multiple onchange="procesarImagenesAdjuntas(event)">
+                            <small class="text-muted" style="display:block; margin-top:-8px; margin-bottom:8px;">Puedes adjuntar hasta 3 fotografías por insumo (<strong id="contador-imgs-form">0/3</strong> seleccionadas).
+                            </small>
+                            <div id="preview-imagenes-form" class="img-preview-list"></div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success">Guardar Producto</button>
+                        <button type="button" class="btn btn-outline" onclick="cerrarFormProducto()">Cancelar</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-flex">
+                        <h3>Inventario</h3>
+                        <div class="view-switcher">
+                            <button type="button" class="btn btn-sm btn-success" onclick="abrirNuevoProducto()">+ Nuevo Producto</button>
+                            <button type="button" id="btn-vista-lista" class="btn btn-sm btn-primary" onclick="cambiarVistaInventario('lista')">Vista Lista</button>
+                            <button type="button" id="btn-vista-tarjetas" class="btn btn-sm btn-outline" onclick="cambiarVistaInventario('tarjetas')">Vista Catálogo</button>
+                        </div>
+                    </div>
+
+                    <div id="contenedor-inv-lista" class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>PRODUCTO Y FOTOS</th>
+                                    <th>CATEGORÍA</th>
+                                    <th>PRECIO UNITARIO</th>
+                                    <th>STOCK</th>
+                                    <th>VISIBLE (INTERRUPTOR)</th>
+                                    <th>ACCIONES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-mi-catalogo"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="contenedor-inv-tarjetas" class="product-grid hidden"></div>
+                </div>
+            </section>
+
+            <!-- PEDIDOS RECIBIDOS (VENDEDOR) -->
+            <section id="mod-pedidos-recibidos" class="modulo hidden">
+                <div class="card">
+                    <h3>Bandeja de Pedidos Recibidos</h3>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>PEDIDO</th>
+                                    <th>PYME COMPRADORA</th>
+                                    <th>PRODUCTO(S) Y CANT.</th>
+                                    <th>SUBTOTAL PROD.</th>
+                                    <th>COSTO ENVÍO</th>
+                                    <th>ESTADO BPMN</th>
+                                    <th>SEGUIMIENTO</th>
+                                    <th>GESTIÓN VENDEDOR</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-pedidos-recibidos"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="card-cotizar-envio" class="card hidden">
+                    <h3>Gestión del Pedido #<span id="cot-id-label"></span> - Cotización de Despacho y Liquidación</h3>
+
+                    <div id="info-destino-cotizador" class="alert alert-success" style="margin-bottom:14px;"></div>
+
+                    <form id="form-cotizar" onsubmit="enviarCotizacion(event)">
+                        <input type="hidden" id="cot-id-pedido">
+                        <div class="form-grid-3">
+                            <div>
+                                <label>1. Empresa / Medio de Transporte *</label>
+                                <input type="text" id="cot-transporte" required placeholder="Ej: Starken Cargo Empresas">
+                            </div>
+                            <div>
+                                <label>2. Tiempo Estimado de Envío *</label>
+                                <input type="text" id="cot-tiempo" required placeholder="Ej: 3 a 5 días hábiles" value="3 a 5 días hábiles">
+                            </div>
+                            <div>
+                                <label>3. Costo de Envío ($ CLP - Exento de comisión) *</label>
+                                <input type="number" id="cot-costo" min="0" required oninput="actualizarSimulador()">
+                            </div>
+                        </div>
+
+                        <div class="fin-boxes-grid">
+                            <div class="fin-box">
+                                <span>SUBTOTAL PRODUCTOS</span>
+                                <strong id="sim-subtotal">$0 CLP</strong>
+                                <small>Base afecta a comisión</small>
+                            </div>
+                            <div class="fin-box fin-box-red">
+                                <span>COMISIÓN ANDESB2B (3%)</span>
+                                <strong id="sim-comision">-$0 CLP</strong>
+                                <small>Retención sobre productos</small>
+                            </div>
+                            <div class="fin-box fin-box-blue">
+                                <span>COSTO DE ENVÍO</span>
+                                <strong id="sim-envio">$0 CLP</strong>
+                                <small>100% exento de comisión</small>
+                            </div>
+                            <div class="fin-box fin-box-green">
+                                <span>NETO VENDEDOR A RECIBIR</span>
+                                <strong id="sim-neto">$0 CLP</strong>
+                                <small>Subtotal - 3% + Envío</small>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:16px;">
+                            <button type="submit" class="btn btn-primary">Enviar Cotización al Comprador</button>
+                            <button type="button" class="btn btn-outline" onclick="document.getElementById('card-cotizar-envio').classList.add('hidden')">Cerrar</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- ESTADO DE CUENTA (3%) -->
+            <section id="mod-estado-cuenta" class="modulo hidden">
+                <div class="fin-boxes-grid" style="margin-bottom:20px;">
+                    <div class="fin-box">
+                        <span>SUBTOTAL VENTAS LIQUIDADAS</span>
+                        <strong id="ec-subtotal">$0 CLP</strong>
+                    </div>
+                    <div class="fin-box fin-box-blue">
+                        <span>DESPACHOS ACUMULADOS (EXENTO)</span>
+                        <strong id="ec-envio">$0 CLP</strong>
+                    </div>
+                    <div class="fin-box fin-box-red">
+                        <span>COMISIÓN TOTAL (3%)</span>
+                        <strong id="ec-comision">-$0 CLP</strong>
+                    </div>
+                    <div class="fin-box fin-box-green">
+                        <span>NETO ACUMULADO VENDEDOR</span>
+                        <strong id="ec-neto">$0 CLP</strong>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Documentos de Cobro Emitidos</h3>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>FOLIO DOC</th>
+                                    <th>PEDIDO ORIGEN</th>
+                                    <th>FECHA EMISIÓN</th>
+                                    <th>SUBTOTAL PRODUCTOS</th>
+                                    <th>MONTO ENVÍO (EXENTO)</th>
+                                    <th>COMISIÓN ANDESB2B (3%)</th>
+                                    <th>TOTAL OPERACIÓN</th>
+                                    <th>ESTADO COBRO</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-estado-cuenta"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DATOS EMPRESA -->
+            <section id="mod-datos-empresa" class="modulo hidden">
+                <div class="card">
+                    <div class="card-header-flex" style="flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <h3 style="margin-bottom:4px;">Datos de la Empresa/Pyme</h3>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" id="btn-habilitar-edicion-emp" class="btn btn-primary btn-sm" onclick="habilitarEdicionEmpresa(true)">Editar Datos
+                            </button>
+                            <button type="button" id="btn-mostrar-pass" class="btn btn-outline btn-sm" onclick="mostrarFormularioPassword(true)">Cambiar Contraseña
+                            </button>
+                        </div>
+                    </div>
+
+                    <form id="form-datos-empresa" onsubmit="guardarDatosEmpresa(event)" style="margin-top:14px;">
+                        <div class="form-grid-2">
+                            <div>
+                                <label>Razón Social</label>
+                                <input type="text" id="emp-razon" readonly disabled>
+                                <label>RUT Empresa (Único)</label>
+                                <input type="text" id="emp-rut" readonly disabled>
+                                <label>Giro Comercial Declarado</label>
+                                <input type="text" id="emp-giro" required disabled>
+                            </div>
+                            <div>
+                                <label>Región de Operación / Despacho</label>
+                                <select id="emp-region" required disabled>
+                                    <option value="Los Lagos">Los Lagos</option>
+                                    <option value="Biobío">Biobío</option>
+                                    <option value="Araucanía">La Araucanía</option>
+                                    <option value="Metropolitana">Metropolitana</option>
+                                    <option value="Valparaíso">Valparaíso</option>
+                                </select>
+                                <label>Dirección Casa Matriz / Bodega de Despacho</label>
+                                <input type="text" id="emp-direccion" required disabled>
+                                <label>Usuario en Sesión</label>
+                                <input type="text" id="emp-admin" readonly disabled>
+                            </div>
+                        </div>
+
+                        <!-- Botones visibles solo cuando se activa "Editar Datos" -->
+                        <div id="acciones-guardar-empresa" class="hidden" style="margin-top:12px; display:flex; gap:10px;">
+                            <button type="submit" class="btn btn-success">Guardar Cambios</button>
+                            <button type="button" class="btn btn-outline" onclick="habilitarEdicionEmpresa(false)">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Apartado de Cambio de Contraseña oculto por defecto -->
+                <div id="card-cambiar-pass" class="card hidden">
+                    <div class="card-header-flex">
+                        <h3>Seguridad - Cambiar Contraseña de Acceso</h3>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="mostrarFormularioPassword(false)">Cerrar</button>
+                    </div>
+                    <form id="form-cambiar-pass" onsubmit="cambiarMiPassword(event)">
+                        <div class="form-grid-3">
+                            <div>
+                                <label>Contraseña Actual *</label>
+                                <input type="password" id="pass-actual" required placeholder="Ingresa tu contraseña vigente">
+                            </div>
+                            <div>
+                                <label>Nueva Contraseña (mín. 6 caracteres) *</label>
+                                <input type="password" id="pass-nueva" required placeholder="Ingresa la nueva contraseña">
+                            </div>
+                            <div>
+                                <label>Confirmar Nueva Contraseña *</label>
+                                <input type="password" id="pass-confirmar" required placeholder="Repite la nueva contraseña">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:10px; margin-top:8px;">
+                            <button type="submit" class="btn btn-success">Actualizar Contraseña</button>
+                            <button type="button" class="btn btn-outline" onclick="mostrarFormularioPassword(false)">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- GESTIONAR USUARIOS CON FORMULARIO DESPLEGABLE BAJO DEMANDA -->
+            <section id="mod-usuarios" class="modulo hidden">
+                <!-- Formulario oculto por defecto -->
+                <div id="card-form-usuario" class="card hidden">
+                    <div class="card-header-flex">
+                        <h3 id="titulo-form-usuario">Registrar Nuevo Usuario en la Pyme</h3>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="cerrarFormUsuario()">Cerrar</button>
+                    </div>
+                    <form id="form-nuevo-usuario" onsubmit="crearUsuarioPyme(event)" novalidate>
+                        <input type="hidden" id="usu-id">
+                        <div class="form-grid-3">
+                            <div>
+                                <label>Nombre Completo *</label>
+                                <input type="text" id="usu-nombre" required placeholder="Ej: Juan Pérez">
+                            </div>
+                            <div>
+                                <label>RUT Persona (Módulo 11) *</label>
+                                <input type="text" id="usu-rut" required placeholder="Ej: 14.444.444-4" oninput="formatearInputRut(this)">
+                            </div>
+                            <div>
+                                <label>Correo Corporativo *</label>
+                                <input type="email" id="usu-email" required placeholder="jperez@empresa.cl">
+                            </div>
+                            <div>
+                                <label>Rol Asignado (RBAC) *</label>
+                                <select id="usu-rol" required>
+                                    <option value="Comprador">Comprador</option>
+                                    <option value="Vendedor">Vendedor</option>
+                                    <option value="Administrador">Administrador</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label id="label-usu-pass">Contraseña Inicial *</label>
+                                <input type="password" id="usu-pass" value="Andes2026!" placeholder="Mínimo 6 caracteres">
+                            </div>
+                            <div style="display:flex; align-items:flex-end; gap:8px;">
+                                <button type="submit" id="btn-submit-usuario" class="btn btn-success full-width">Guardar Usuario</button>
+                                <button type="button" class="btn btn-outline" onclick="cerrarFormUsuario()">Cancelar</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-flex">
+                        <h3>Nómina de Usuarios y Control de Roles (RBAC)</h3>
+                        <button type="button" class="btn btn-sm btn-success" onclick="abrirNuevoUsuario()">+ Nuevo Usuario</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>NOMBRE COMPLETO</th>
+                                    <th>RUT PERSONA</th>
+                                    <th>CORREO ELECTRÓNICO</th>
+                                    <th>ROL ACTUAL</th>
+                                    <th>ESTADO</th>
+                                    <th>ACCIONES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-usuarios"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AUDITORÍA DE PRECIOS -->
+            <section id="mod-auditoria" class="modulo hidden">
+                <div class="card">
+                    <div class="card-header-flex">
+                        <h3>Registro Histórico de Cambios de Precios</h3>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID LOG</th>
+                                    <th>FECHA Y HORA</th>
+                                    <th>PRODUCTO / SKU</th>
+                                    <th>PRECIO ANTERIOR</th>
+                                    <th>PRECIO NUEVO</th>
+                                    <th>VARIACIÓN</th>
+                                    <th>USUARIO RESPONSABLE</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-auditoria"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/validaciones.js"></script>
+    <script src="/js/nucleo.js"></script>
+    <script src="/js/imagenes.js"></script>
+    <script src="/js/navegacion.js"></script>
+    <script src="/js/dashboard.js"></script>
+    <script src="/js/empresa.js"></script>
+    <script src="/js/catalogo.js"></script>
+    <script src="/js/inventario.js"></script>
+    <script src="/js/pedidos.js"></script>
+    <script src="/js/estado-cuenta.js"></script>
+    <script src="/js/usuarios.js"></script>
+    <script src="/js/auditoria.js"></script>
+</body>
+</html>
