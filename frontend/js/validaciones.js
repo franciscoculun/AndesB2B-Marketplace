@@ -46,3 +46,63 @@ function validarFormatoCorreo(email) {
     const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(cl|com|org|net|edu|gob|io|co|[a-zA-Z]{2,6})$/i;
     return regex.test(email.trim());
 }
+
+// Verifica formato de contraseña: mínimo 8 caracteres, al menos una letra mayúscula, una letra minúscula, un número y un carácter especial 
+function esPasswordSegura(p) {
+    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(p || '');
+}
+
+const MSG_PASSWORD_SEGURA =
+    'La contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y símbolo.';
+
+// Teléfono chileno: móvil (9 XXXX XXXX) o fijo (2 XXXX XXXX / 32 XXX XXXX), con +56 opcional.
+// Acepta espacios, guiones y paréntesis como separadores.
+function esTelefonoChileno(t) {
+    const limpio = String(t || '').replace(/[\s\-()]/g, '');
+    return /^(\+?56)?[2-9]\d{8}$/.test(limpio);
+}
+const MSG_TELEFONO_INVALIDO = 'El teléfono de contacto no es válido. Usa un número chileno, por ejemplo +56 9 8765 4321.';
+
+// Cuadro de confirmación Sí / No. Uso: if (!await confirmarAccion('¿Estás seguro?')) return;
+// La opción por defecto (foco) es "No"; Escape o clic fuera del cuadro cancelan.
+function confirmarAccion(mensaje, opciones = {}) {
+    return new Promise(resolve => {
+        const fondo = document.createElement('div');
+        fondo.className = 'modal-confirmar-fondo';
+        fondo.setAttribute('role', 'dialog');
+        fondo.setAttribute('aria-modal', 'true');
+
+        const caja = document.createElement('div');
+        caja.className = 'modal-confirmar';
+        const h = document.createElement('h3');
+        h.textContent = opciones.titulo || 'Confirmar acción';
+        const p = document.createElement('p');
+        p.textContent = mensaje;
+        const botones = document.createElement('div');
+        botones.className = 'modal-confirmar-botones';
+        const btnNo = document.createElement('button');
+        btnNo.type = 'button';
+        btnNo.className = 'btn btn-outline';
+        btnNo.textContent = opciones.textoNo || 'No';
+        const btnSi = document.createElement('button');
+        btnSi.type = 'button';
+        btnSi.className = 'btn ' + (opciones.peligro ? 'btn-danger' : 'btn-success');
+        btnSi.textContent = opciones.textoSi || 'Sí';
+        botones.append(btnNo, btnSi);
+        caja.append(h, p, botones);
+        fondo.appendChild(caja);
+
+        const onKey = ev => { if (ev.key === 'Escape') cerrar(false); };
+        function cerrar(resultado) {
+            document.removeEventListener('keydown', onKey);
+            fondo.remove();
+            resolve(resultado);
+        }
+        btnSi.addEventListener('click', () => cerrar(true));
+        btnNo.addEventListener('click', () => cerrar(false));
+        fondo.addEventListener('click', ev => { if (ev.target === fondo) cerrar(false); });
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(fondo);
+        btnNo.focus();
+    });
+}

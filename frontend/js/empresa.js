@@ -64,7 +64,7 @@ function cargarDatosEmpresa() {
                             <input type="password" id="pass-actual" required placeholder="Ingresa tu contraseña vigente">
                         </div>
                         <div>
-                            <label>Nueva Contraseña (mín. 6 caracteres) *</label>
+                            <label>Nueva Contraseña (mín. 8 caracteres) *</label>
                             <input type="password" id="pass-nueva" required placeholder="Ingresa la nueva contraseña">
                         </div>
                         <div>
@@ -146,6 +146,7 @@ window.mostrarFormularioPassword = function (mostrar) {
 
 window.guardarDatosEmpresa = async function (e) {
     e.preventDefault();
+    if (!await confirmarAccion('¿Guardar los cambios en los datos comerciales de la empresa?')) return;
     const payload = {
         giro: document.getElementById('emp-giro').value.trim(),
         region: document.getElementById('emp-region').value,
@@ -170,12 +171,14 @@ window.cambiarMiPassword = async function (e) {
     const nuevaPassword = document.getElementById('pass-nueva').value;
     const confirmar = document.getElementById('pass-confirmar').value;
 
-    if (nuevaPassword.length < 6) {
-        return mostrarAlerta('La nueva contraseña debe tener al menos 6 caracteres.', true);
+    if (!esPasswordSegura(nuevaPassword)) {
+    return mostrarAlerta(MSG_PASSWORD_SEGURA, true);
     }
     if (nuevaPassword !== confirmar) {
         return mostrarAlerta('La confirmación de la nueva contraseña no coincide.', true);
     }
+
+    if (!await confirmarAccion('¿Seguro que quieres cambiar tu contraseña?')) return;
 
     const res = await fetch(`${API_URL}/auth/cambiar-password`, {
         method: 'PUT',

@@ -53,8 +53,8 @@ async function registrarEmpresa(e) {
     if (!validarFormatoCorreo(email)) {
         return mostrarAlertaPublica('Ingresa un correo corporativo válido con @ y extensión (.cl, .com, etc.).', true);
     }
-    if (!password || password.length < 6) {
-        return mostrarAlertaPublica('La contraseña debe contener al menos 6 caracteres.', true);
+    if (!esPasswordSegura(password)) {
+    return mostrarAlertaPublica(MSG_PASSWORD_SEGURA, true);
     }
 
     const payload = {
@@ -68,6 +68,8 @@ async function registrarEmpresa(e) {
         email,
         password
     };
+
+    if (!await confirmarAccion('¿Confirmas los datos para crear la cuenta empresarial?', { titulo: 'Crear cuenta', textoSi: 'Sí, crear cuenta' })) return;
 
     const res = await fetch(`${API_URL}/auth/registro-empresa`, {
         method: 'POST',
@@ -113,8 +115,8 @@ async function confirmarRestablecimiento(e) {
     const token = document.getElementById('rec-token').value.trim();
     const nuevaPassword = document.getElementById('rec-nueva-pass').value;
 
-    if (nuevaPassword.length < 6) {
-        return mostrarAlertaPublica('La nueva contraseña debe tener al menos 6 caracteres.', true);
+    if (!esPasswordSegura(nuevaPassword)) {
+    return mostrarAlertaPublica(MSG_PASSWORD_SEGURA, true);
     }
 
     const res = await fetch(`${API_URL}/auth/restablecer`, {

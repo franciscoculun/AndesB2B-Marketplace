@@ -47,8 +47,8 @@ window.abrirNuevoUsuario = function () {
 
     const inputPass = document.getElementById('usu-pass');
     if (inputPass) {
-        inputPass.value = 'Andes2026!';
-        inputPass.placeholder = 'Contraseña inicial obligatoria';
+        inputPass.value = '';
+        inputPass.placeholder = 'Obligatoria: mín. 8, con mayúscula, minúscula, número y símbolo';
     }
 
     const card = document.getElementById('card-form-usuario');
@@ -129,9 +129,13 @@ window.crearUsuarioPyme = async function (e) {
     if (typeof validarFormatoCorreo === 'function' && !validarFormatoCorreo(email)) {
         return mostrarAlerta('Ingresa un correo electrónico válido con @ y dominio (.cl, .com, etc.).', true);
     }
-    if (!idUsu && (!password || password.length < 6)) {
-        return mostrarAlerta('La contraseña inicial debe tener al menos 6 caracteres.', true);
+    if (!idUsu && !esPasswordSegura(password)) {
+    return mostrarAlerta(MSG_PASSWORD_SEGURA, true);
     }
+
+    if (!await confirmarAccion(idUsu
+        ? `¿Guardar los cambios del usuario "${nombreCompleto}"?`
+        : `¿Registrar al usuario "${nombreCompleto}" con el rol ${nombreRol}?`)) return;
 
     const payload = { nombreCompleto, rutUsuario, email, nombreRol };
     if (password && password.trim() !== '') {
@@ -164,7 +168,8 @@ window.crearUsuarioPyme = async function (e) {
 window.eliminarUsuario = async function (idUsuario) {
     const u = listaUsuariosEmpresaGlobal.find(item => item.idUsuario === idUsuario);
     const nombre = u ? u.nombreCompleto : `#${idUsuario}`;
-    if (!confirm(`¿Confirmas la eliminación del usuario "${nombre}" de la empresa?`)) {
+    if (!await confirmarAccion(`¿Confirmas la eliminación del usuario "${nombre}" de la empresa?`,
+        { titulo: 'Eliminar usuario', textoSi: 'Sí, eliminar', peligro: true })) {
         return;
     }
     const res = await fetch(`${API_URL}/usuarios/${idUsuario}`, {
@@ -179,6 +184,12 @@ window.eliminarUsuario = async function (idUsuario) {
 };
 
 window.cambiarEstadoUsuario = async function (idUsuario, nuevoEstado) {
+    const u = listaUsuariosEmpresaGlobal.find(item => item.idUsuario === idUsuario);
+    const nombre = u ? u.nombreCompleto : `#${idUsuario}`;
+    if (!await confirmarAccion(nuevoEstado
+        ? `¿Activar la cuenta de "${nombre}"?`
+        : `¿Desactivar la cuenta de "${nombre}"? No podrá iniciar sesión.`,
+        { peligro: !nuevoEstado })) return;
     const res = await fetch(`${API_URL}/usuarios/${idUsuario}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

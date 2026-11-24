@@ -69,6 +69,18 @@ public class PedidoController {
         }
     }
 
+    @PutMapping("/{idPedido}/cancelar")
+    public ResponseEntity< ? > cancelarPedido(@AuthenticationPrincipal UsuarioPrincipal sesion,
+                                              @PathVariable Integer idPedido) {
+        try {
+            return ResponseEntity.ok(pedidoService.cancelarPedido(sesion, idPedido));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Acceso denegado."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Solicitud inválida."));
+        }
+    }
+
     @PutMapping("/{idPedido}/seguimiento")
     public ResponseEntity< ? > registrarSeguimiento(@AuthenticationPrincipal UsuarioPrincipal sesion,
                                                     @PathVariable Integer idPedido,

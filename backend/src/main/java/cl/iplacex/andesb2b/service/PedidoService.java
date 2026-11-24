@@ -49,6 +49,9 @@ public class PedidoService {
         }
     }
 
+    private static final java.util.regex.Pattern TELEFONO_CL =
+            java.util.regex.Pattern.compile("^(\\+?56)?[2-9]\\d{8}$");
+
     @Transactional
     public PedidoResumenDto crearPedido(UsuarioPrincipal sesion, Map< String, Object > payload) {
         exigirRolComprador(sesion);
@@ -81,8 +84,13 @@ public class PedidoService {
             throw new IllegalArgumentException("El nombre de quien recibe, el teléfono de contacto y la dirección de destino son obligatorios.");
         }
 
+        if (esCarritoConDespacho && !TELEFONO_CL.matcher(telefono.replaceAll("[\\s\\-()]", "")).matches()) {
+            throw new IllegalArgumentException("El teléfono de contacto no es válido. Usa un número chileno, por ejemplo +56 9 8765 4321.");
+        }
+
         Empresa proveedorUnico = null;
         Pedido pedido = null;
+        Map< Integer, Integer > cantidadPorProducto = new java.util.HashMap<>();
 
         for (Object rawItem : items) {
             Map< ?, ? > item = (Map< ?, ? >) rawItem;
@@ -102,8 +110,12 @@ public class PedidoService {
             if (comprador.getEmpresa().getIdEmpresa().equals(prod.getEmpresaVendedora().getIdEmpresa())) {
                 throw new IllegalArgumentException("Restricción comercial: Una empresa no puede emitir órdenes de compra a sí misma.");
             }
-            if (prod.getStockDisponible() < cantidad) {
-                throw new IllegalArgumentException("Stock insuficiente para el insumo: " + prod.getNombreProducto());
+            // Las solicitudes pendientes NO reservan stock: solo se compara con el stock actual.
+            // La verificación definitiva ocurre al aceptar la cotización (con bloqueo de fila).
+            int cantidadAcumulada = cantidadPorProducto.merge(idProducto, cantidad, Integer::sum);
+            if (prod.getStockDisponible() < cantidadAcumulada) {
+                throw new IllegalArgumentException("Stock insuficiente para el insumo: " + prod.getNombreProducto()
+                        + " (solicitado: " + cantidadAcumulada + ", disponible: " + prod.getStockDisponible() + ").");
             }
 
             if (proveedorUnico == null) {
@@ -150,6 +162,10 @@ public class PedidoService {
             throw new IllegalArgumentException("Solo se pueden cotizar pedidos que estén en estado COTIZANDO_ENVIO.");
         }
 
+        if (p.getMedioTransporte() != null && !p.getMedioTransporte().isBlank()) {
+            throw new IllegalArgumentException("Este pedido ya fue cotizado. La cotización no puede modificarse; espera la respuesta del comprador.");
+        }
+
         String transporte = datos.get("medioTransporte") != null ? datos.get("medioTransporte").toString().trim() : "";
         String tiempoEstimado = datos.get("tiempoEstimadoEnvio") != null ? datos.get("tiempoEstimadoEnvio").toString().trim() : "";
         BigDecimal costo = new BigDecimal(datos.get("costoEnvio").toString());
@@ -161,6 +177,50 @@ public class PedidoService {
         p.setTiempoEstimadoEnvio(tiempoEstimado.isEmpty() ? "3 a 5 días hábiles" : tiempoEstimado);
         p.setCostoEnvio(costo);
         return armarDto(pedidoRepo.save(p));
+    }
+
+    // Cancelación / anulación: cierra el pedido en estado RECHAZADO desde cualquiera de las dos partes.
+    //  - COTIZANDO_ENVIO: el comprador cancela o el vendedor rechaza la solicitud (el stock no se había descontado aún).
+    //  - COMPRA_CONFIRMADA con pago sin verificar: se devuelve el stock y el documento de cobro queda ANULADO.
+    @Transactional
+    public PedidoResumenDto cancelarPedido(UsuarioPrincipal sesion, Integer idPedido) {
+        if (sesion == null) {
+            throw new SecurityException("Sesión no válida.");
+        }
+        Pedido p = pedidoRepo.findById(idPedido)
+                .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado."));
+
+        if (sesion.idEmpresa().equals(p.getEmpresaCompradora().getIdEmpresa())) {
+            exigirRolComprador(sesion);
+        } else if (sesion.idEmpresa().equals(p.getEmpresaVendedora().getIdEmpresa())) {
+            exigirRolVendedor(sesion);
+        } else {
+            throw new SecurityException("No tienes permiso para modificar pedidos de otra empresa.");
+        }
+
+        String estado = p.getEstadoPedido();
+        if ("COTIZANDO_ENVIO".equals(estado)) {
+            p.setEstadoPedido("RECHAZADO");
+            return armarDto(pedidoRepo.save(p));
+        }
+        if ("COMPRA_CONFIRMADA".equals(estado)) {
+            if ("VERIFICADO".equals(p.getEstadoPago())) {
+                throw new IllegalArgumentException("El pago de este pedido ya fue verificado y no puede anularse desde el sistema.");
+            }
+            for (DetallePedido d : detalleRepo.findByPedidoIdPedido(idPedido)) {
+                Producto prodBloqueado = productoRepo.findByIdForUpdate(d.getProducto().getIdProducto())
+                        .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado."));
+                prodBloqueado.setStockDisponible(prodBloqueado.getStockDisponible() + d.getCantidad());
+                productoRepo.save(prodBloqueado);
+            }
+            cobroRepo.findByPedidoIdPedido(idPedido).ifPresent(doc -> {
+                doc.setEstadoCobro("ANULADO");
+                cobroRepo.save(doc);
+            });
+            p.setEstadoPedido("RECHAZADO");
+            return armarDto(pedidoRepo.save(p));
+        }
+        throw new IllegalArgumentException("Este pedido ya no puede cancelarse (Estado actual: " + estado + ").");
     }
 
     @Transactional

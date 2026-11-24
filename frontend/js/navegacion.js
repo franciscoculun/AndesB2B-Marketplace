@@ -45,6 +45,7 @@ function configurarInterfazPorRol() {
 }
 
 window.cerrarSesion = async function () {
+    if (!await confirmarAccion('¿Deseas cerrar tu sesión?', { titulo: 'Cerrar sesión', textoSi: 'Sí, salir' })) return;
     try {
         await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'same-origin' });
     } catch (e) {
@@ -55,6 +56,9 @@ window.cerrarSesion = async function () {
 };
 
 window.cambiarModulo = function (modulo, btnElement) {
+    // Los paneles fijos inferiores (carrito / cotizador) no deben quedar abiertos al cambiar de módulo
+    if (typeof cerrarCotizador === 'function') cerrarCotizador();
+    document.body.classList.remove('carrito-abierto');
     document.querySelectorAll('.modulo').forEach(s => s.classList.add('hidden'));
     const seccion = document.getElementById(`mod-${modulo}`);
     if (seccion) seccion.classList.remove('hidden');
@@ -73,7 +77,7 @@ window.cambiarModulo = function (modulo, btnElement) {
         'estado-cuenta': ['Módulo de Ventas › Estado de cuenta', 'Estado de Cuenta Mensual y Comisión (3%)'],
         'datos-empresa': ['Administración › Datos empresa y Seguridad', 'Ficha de la Pyme y Cambio de Contraseña'],
         'usuarios': ['Administración › Gestionar usuarios', 'Gestionar Usuarios y Permisos (RBAC)'],
-        'auditoria': ['Administración › Auditoría de precios', 'Auditoría de Precios (Log_Auditoria_Precios)']
+        'auditoria': ['Administración › Auditoría de precios', 'Auditoría de Precios']
     };
 
     if (rutas[modulo]) {

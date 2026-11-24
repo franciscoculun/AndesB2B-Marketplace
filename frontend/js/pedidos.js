@@ -1,6 +1,9 @@
 /* AndesB2B · Mis pedidos (comprador) y pedidos recibidos (vendedor): cotización, factura PDF, seguimiento, recepción
    Script: comparte el ámbito global con los demás archivos de /js (ver orden de carga en panel.html). */
 // MIS PEDIDOS Y PEDIDOS RECIBIDOS
+const pgMisPedidos = crearPaginador('pag-mis-pedidos', [10, 20, 50], () => cargarMisPedidos());
+const pgPedidosRecibidos = crearPaginador('pag-pedidos-recibidos', [10, 20, 50], () => renderizarPedidosRecibidos());
+
 async function cargarMisPedidos() {
     const res = await fetch(`${API_URL}/pedidos/mis-compras`);
     const lista = res.ok ? await res.json() : [];
@@ -8,7 +11,9 @@ async function cargarMisPedidos() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    lista.forEach(p => {
+    const visiblesMis = paginar(pgMisPedidos, lista);
+    dibujarPaginacion(pgMisPedidos, tbody.closest('.table-responsive') || tbody.parentElement, lista.length);
+    visiblesMis.forEach(p => {
         const idPed = Number(p.idPedido);
         const prodTexto = (p.detalles && p.detalles.length > 0)
             ? p.detalles.map(d => `${esc(d.nombreProducto)} (${Number(d.cantidad)} un.)`).join(' + ')
@@ -19,7 +24,7 @@ async function cargarMisPedidos() {
             : '';
 
         const tiempoBadge = p.tiempoEstimadoEnvio
-            ? `<br><small class="badge badge-info">⏱️ ${esc(p.tiempoEstimadoEnvio)}</small>`
+            ? `<br><small class="badge badge-info">Plazo: ${esc(p.tiempoEstimadoEnvio)}</small>`
             : '';
 
         const entregaTexto = p.direccionDestino
@@ -36,7 +41,14 @@ async function cargarMisPedidos() {
         }
 
         let acciones = '<span class="text-muted">Esperando cotización</span>';
-        if (p.estadoPedido === 'COTIZANDO_ENVIO' && p.medioTransporte) {
+        if (p.estadoPedido === 'RECHAZADO') {
+            acciones = '<span class="badge badge-danger">Pedido cerrado</span>';
+        } else if (p.estadoPedido === 'COTIZANDO_ENVIO' && !p.medioTransporte) {
+            acciones = `
+                <span class="text-muted" style="display:block;">Esperando cotización</span>
+                <button class="btn btn-danger btn-sm" onclick="cancelarPedido(${idPed}, false)">Cancelar pedido</button>
+            `;
+        } else if (p.estadoPedido === 'COTIZANDO_ENVIO' && p.medioTransporte) {
             acciones = `
                 <button class="btn btn-success btn-sm" onclick="responderCotizacion(${idPed}, true)">Aceptar y Confirmar</button>
                 <button class="btn btn-danger btn-sm" onclick="responderCotizacion(${idPed}, false)">Rechazar</button>
@@ -45,11 +57,17 @@ async function cargarMisPedidos() {
             if (p.estadoPago === 'SIN_COMPROBANTE' || p.estadoPago === 'OBSERVADO') {
                 acciones = `
                     <input type="file" id="file-pdf-${idPed}" accept="application/pdf" class="hidden" onchange="subirFacturaPdf(${idPed}, event)">
-                    <button class="btn btn-primary btn-sm" onclick="document.getElementById('file-pdf-${idPed}').click()">Adjuntar Factura PDF</button>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('file-pdf-${idPed}').click()">Adjuntar Factura PDF</button>
+                        <button class="btn btn-danger btn-sm" onclick="cancelarPedido(${idPed}, true)">Anular pedido</button>
+                    </div>
                 `;
             } else if (p.estadoPago === 'EN_REVISION') {
                 acciones = `
-                    <button class="btn btn-outline btn-sm" onclick="verFacturaPdf(${idPed})">Ver PDF</button>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="btn btn-outline btn-sm" onclick="verFacturaPdf(${idPed})">Ver PDF</button>
+                        <button class="btn btn-danger btn-sm" onclick="cancelarPedido(${idPed}, true)">Anular pedido</button>
+                    </div>
                     <small class="text-muted" style="display:block;">Esperando validación</small>
                 `;
             } else if (p.estadoPago === 'VERIFICADO') {
@@ -81,7 +99,7 @@ async function cargarMisPedidos() {
                 <td>${formatearCLP(p.subtotalProductos)}</td>
                 <td>${formatearCLP(p.costoEnvio)}</td>
                 <td>${esc(p.codigoSeguimiento || '-')}</td>
-                <td><span class="badge badge-info">${esc(p.estadoPedido)}</span>${badgePago}</td>
+                <td><span class="badge ${p.estadoPedido === 'RECHAZADO' ? 'badge-danger' : 'badge-info'}">${esc(p.estadoPedido)}</span>${p.estadoPedido === 'RECHAZADO' ? '' : badgePago}</td>
                 <td>${acciones}</td>
             </tr>
         `;
@@ -91,11 +109,17 @@ async function cargarMisPedidos() {
 async function cargarPedidosRecibidos() {
     const res = await fetch(`${API_URL}/pedidos/mis-ventas`);
     pedidosRecibidosGlobal = res.ok ? await res.json() : [];
+    renderizarPedidosRecibidos();
+}
+
+function renderizarPedidosRecibidos() {
     const tbody = document.getElementById('tabla-pedidos-recibidos');
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    pedidosRecibidosGlobal.forEach(p => {
+    const visiblesRec = paginar(pgPedidosRecibidos, pedidosRecibidosGlobal);
+    dibujarPaginacion(pgPedidosRecibidos, tbody.closest('.table-responsive') || tbody.parentElement, pedidosRecibidosGlobal.length);
+    visiblesRec.forEach(p => {
         const idPed = Number(p.idPedido);
         const prodTexto = (p.detalles && p.detalles.length > 0)
             ? p.detalles.map(d => `${esc(d.nombreProducto)} (${Number(d.cantidad)} un.)`).join(' + ')
@@ -104,7 +128,7 @@ async function cargarPedidosRecibidos() {
         const infoLogisticaComprador = `
             <br><small class="text-muted">Destino: ${esc(p.direccionDestino || '-')}</small>
             <br><small class="text-muted">Recibe: ${esc(p.nombreReceptor || '-')} (${esc(p.telefonoContacto || '-')})</small>
-            ${p.tiempoEstimadoEnvio ? `<br><small class="badge badge-info">⏱️ ${esc(p.tiempoEstimadoEnvio)}</small>` : ''}
+            ${p.tiempoEstimadoEnvio ? `<br><small class="badge badge-info">Plazo: ${esc(p.tiempoEstimadoEnvio)}</small>` : ''}
         `;
 
         let badgePago = '';
@@ -117,17 +141,30 @@ async function cargarPedidosRecibidos() {
         }
 
         let boton = '<span class="text-muted">Sin acción pendiente</span>';
-        if (p.estadoPedido === 'COTIZANDO_ENVIO') {
-            boton = `<button class="btn btn-primary btn-sm" onclick="abrirCotizador(${idPed})">Cotizar Envío</button>`;
+        if (p.estadoPedido === 'RECHAZADO') boton = '<span class="badge badge-danger">Pedido cerrado</span>';
+        else if (p.estadoPedido === 'COTIZANDO_ENVIO' && p.medioTransporte) {
+            boton = `
+                <span class="badge badge-success" style="display:block; margin-bottom:6px;">Cotización enviada</span>
+                <small class="text-muted" style="display:block; margin-bottom:6px;">Esperando respuesta del comprador (${esc(p.medioTransporte)})</small>
+                <button class="btn btn-danger btn-sm" onclick="cancelarPedido(${idPed}, false)">Rechazar pedido</button>`;
+        } else if (p.estadoPedido === 'COTIZANDO_ENVIO') {
+            boton = `
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button class="btn btn-primary btn-sm" onclick="abrirCotizador(${idPed})">Cotizar Envío</button>
+                    <button class="btn btn-danger btn-sm" onclick="cancelarPedido(${idPed}, false)">Rechazar pedido</button>
+                </div>`;
         } else if (p.estadoPedido === 'COMPRA_CONFIRMADA') {
             if (p.estadoPago === 'SIN_COMPROBANTE' || p.estadoPago === 'OBSERVADO') {
-                boton = `<span class="text-muted">Esperando Factura PDF del comprador</span>`;
+                boton = `
+                    <span class="text-muted" style="display:block;">Esperando Factura PDF del comprador</span>
+                    <button class="btn btn-danger btn-sm" onclick="cancelarPedido(${idPed}, true)">Anular pedido</button>`;
             } else if (p.estadoPago === 'EN_REVISION') {
                 boton = `
                     <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         <button class="btn btn-outline btn-sm" onclick="verFacturaPdf(${idPed})">Ver Factura PDF</button>
                         <button class="btn btn-success btn-sm" onclick="verificarPagoVendedor(${idPed}, true)">Confirmar Pago</button>
                         <button class="btn btn-danger btn-sm" onclick="verificarPagoVendedor(${idPed}, false)">Rechazar PDF</button>
+                        <button class="btn btn-outline btn-sm" onclick="cancelarPedido(${idPed}, true)">Anular pedido</button>
                     </div>
                 `;
             } else if (p.estadoPago === 'VERIFICADO') {
@@ -149,13 +186,29 @@ async function cargarPedidosRecibidos() {
                 <td>${prodTexto}</td>
                 <td>${formatearCLP(p.subtotalProductos)}</td>
                 <td>${formatearCLP(p.costoEnvio)}</td>
-                <td><span class="badge badge-warn">${esc(p.estadoPedido)}</span>${badgePago}</td>
+                <td><span class="badge ${p.estadoPedido === 'RECHAZADO' ? 'badge-danger' : 'badge-warn'}">${esc(p.estadoPedido)}</span>${p.estadoPedido === 'RECHAZADO' ? '' : badgePago}</td>
                 <td>${esc(p.codigoSeguimiento || 'Sin asignar')}</td>
                 <td>${boton}</td>
             </tr>
         `;
     });
 }
+
+window.cancelarPedido = async function (idPedido, esAnulacion) {
+    const ok = await confirmarAccion(esAnulacion
+        ? `¿Anular el Pedido #${idPedido}? Se devolverá el stock descontado y el documento de cobro quedará anulado. Esta acción no se puede deshacer.`
+        : `¿Cancelar o rechazar el Pedido #${idPedido}? El pedido quedará cerrado y no podrá reactivarse.`,
+        { titulo: esAnulacion ? 'Anular pedido' : 'Cerrar pedido', textoSi: esAnulacion ? 'Sí, anular' : 'Sí, cerrar pedido', peligro: true });
+    if (!ok) return;
+
+    const res = await fetch(`${API_URL}/pedidos/${idPedido}/cancelar`, { method: 'PUT' });
+    const data = await res.json();
+    if (!res.ok) return mostrarAlerta(data.error, true);
+
+    mostrarAlerta(`Pedido #${idPedido} cerrado correctamente.`);
+    if (typeof cargarMisPedidos === 'function' && document.getElementById('tabla-mis-pedidos')) cargarMisPedidos();
+    if (typeof cargarPedidosRecibidos === 'function' && document.getElementById('tabla-pedidos-recibidos')) cargarPedidosRecibidos();
+};
 
 window.subirFacturaPdf = function (idPedido, event) {
     const file = event.target.files[0];
@@ -172,6 +225,13 @@ window.subirFacturaPdf = function (idPedido, event) {
         return;
     }
 
+    window.confirmarAccion(`¿Enviar el archivo "${file.name}" como comprobante del Pedido #${idPedido}? Quedará en revisión del proveedor.`, { titulo: 'Adjuntar comprobante', textoSi: 'Sí, enviar' }).then(ok => {
+        if (!ok) { event.target.value = ''; return; }
+        enviarComprobante(idPedido, file);
+    });
+};
+
+function enviarComprobante(idPedido, file) {
     const reader = new FileReader();
     reader.onload = async (ev) => {
         const base64Pdf = ev.target.result;
@@ -217,7 +277,7 @@ window.verificarPagoVendedor = async function (idPedido, aprobar) {
     const msg = aprobar
         ? `¿Confirmas que la factura/comprobante PDF del Pedido #${idPedido} es correcta? Esto habilitará el despacho.`
         : `¿Deseas rechazar el PDF adjunto del Pedido #${idPedido} para que el comprador suba un nuevo documento?`;
-    if (!confirm(msg)) return;
+    if (!await confirmarAccion(msg, { titulo: aprobar ? 'Verificar pago' : 'Rechazar comprobante', peligro: !aprobar })) return;
 
     const res = await fetch(`${API_URL}/pedidos/${idPedido}/verificar-pago`, {
         method: 'PUT',
@@ -236,6 +296,9 @@ window.verificarPagoVendedor = async function (idPedido, aprobar) {
 window.abrirCotizador = function (idPedido) {
     const pedido = pedidosRecibidosGlobal.find(item => item.idPedido === idPedido);
     if (!pedido) return;
+    if (pedido.medioTransporte) {
+        return mostrarAlerta('Este pedido ya fue cotizado. Espera la respuesta del comprador.', true);
+    }
 
     subtotalCotizacionActual = Number(pedido.subtotalProductos || 0);
     const cardCotizar = document.getElementById('card-cotizar-envio');
@@ -273,6 +336,7 @@ window.abrirCotizador = function (idPedido) {
     document.getElementById('cot-id-pedido').value = pedido.idPedido;
     document.getElementById('cot-id-label').textContent = pedido.idPedido;
     document.getElementById('cot-costo').value = 35000;
+    document.getElementById('cot-transporte').value = '';
 
     const tiempoEl = document.getElementById('cot-tiempo');
     if (tiempoEl) tiempoEl.value = '3 a 5 días hábiles';
@@ -283,8 +347,16 @@ window.abrirCotizador = function (idPedido) {
     }
 
     window.actualizarSimulador();
+    // El cotizador se abre como panel fijo en la parte inferior de la pantalla
+    cardCotizar.classList.add('panel-fijo-inferior');
     cardCotizar.classList.remove('hidden');
-    cardCotizar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.body.classList.add('panel-inferior-abierto');
+};
+
+window.cerrarCotizador = function () {
+    const card = document.getElementById('card-cotizar-envio');
+    if (card) card.classList.add('hidden');
+    document.body.classList.remove('panel-inferior-abierto');
 };
 
 window.actualizarSimulador = function () {
@@ -306,6 +378,7 @@ window.actualizarSimulador = function () {
 window.enviarCotizacion = async function (e) {
     e.preventDefault();
     const idPedido = document.getElementById('cot-id-pedido').value;
+    if (!await confirmarAccion(`¿Enviar la cotización de envío del Pedido #${idPedido} al comprador?`, { titulo: 'Confirmar cotización' })) return;
     const payload = {
         medioTransporte: document.getElementById('cot-transporte').value,
         tiempoEstimadoEnvio: document.getElementById('cot-tiempo') ? document.getElementById('cot-tiempo').value : '3 a 5 días hábiles',
@@ -320,11 +393,16 @@ window.enviarCotizacion = async function (e) {
     if (!res.ok) return mostrarAlerta(data.error, true);
 
     mostrarAlerta('Cotización de envío y tiempo estimado enviados al comprador.');
-    document.getElementById('card-cotizar-envio').classList.add('hidden');
+    window.cerrarCotizador();
     cargarPedidosRecibidos();
 };
 
 window.responderCotizacion = async function (idPedido, aprobar) {
+    const ok = await confirmarAccion(aprobar
+        ? `¿Aceptas la cotización del Pedido #${idPedido}? Al confirmar se descontará el stock y se emitirá el documento de cobro.`
+        : `¿Rechazas la cotización del Pedido #${idPedido}? El pedido quedará rechazado.`,
+        { titulo: aprobar ? 'Aceptar cotización' : 'Rechazar cotización', textoSi: aprobar ? 'Sí, aceptar' : 'Sí, rechazar', peligro: !aprobar });
+    if (!ok) return;
     const res = await fetch(`${API_URL}/pedidos/${idPedido}/respuesta`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -340,6 +418,7 @@ window.responderCotizacion = async function (idPedido, aprobar) {
 window.ingresarTracking = async function (idPedido) {
     const codigo = prompt('Ingresa el código de seguimiento del transportista (ej: STK-994821):', 'STK-994821');
     if (!codigo) return;
+    if (!await confirmarAccion(`¿Registrar el código de seguimiento "${codigo}" en el Pedido #${idPedido}? El pedido pasará a EN_TRANSITO.`)) return;
     const res = await fetch(`${API_URL}/pedidos/${idPedido}/seguimiento`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -353,6 +432,7 @@ window.ingresarTracking = async function (idPedido) {
 };
 
 window.confirmarRecepcion = async function (idPedido) {
+    if (!await confirmarAccion(`¿Confirmas que recibiste conforme el Pedido #${idPedido}? El pedido quedará FINALIZADO.`, { titulo: 'Confirmar recepción' })) return;
     const res = await fetch(`${API_URL}/pedidos/${idPedido}/recepcion`, { method: 'PUT' });
     const data = await res.json();
     if (!res.ok) return mostrarAlerta(data.error, true);

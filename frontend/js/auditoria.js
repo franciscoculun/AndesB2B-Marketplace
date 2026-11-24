@@ -1,6 +1,8 @@
 /* AndesB2B · Auditoría de precios (solo lectura)
    Script: comparte el ámbito global con los demás archivos de /js (ver orden de carga en panel.html). */
 
+const pgAuditoria = crearPaginador('pag-auditoria', [10, 25, 50], () => cargarAuditoria());
+
 async function cargarAuditoria() {
     const res = await fetch(`${API_URL}/catalogo/auditoria`);
     const logs = res.ok ? await res.json() : [];
@@ -8,7 +10,9 @@ async function cargarAuditoria() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    logs.forEach(l => {
+    const visiblesLog = paginar(pgAuditoria, logs);
+    dibujarPaginacion(pgAuditoria, tbody.closest('.table-responsive') || tbody.parentElement, logs.length);
+    visiblesLog.forEach(l => {
         const dif = Number(l.precioNuevo) - Number(l.precioAnterior);
         const signo = dif >= 0 ? '+' : '';
         tbody.innerHTML += `

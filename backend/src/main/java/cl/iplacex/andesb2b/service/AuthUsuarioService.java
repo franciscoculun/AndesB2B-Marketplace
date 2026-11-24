@@ -33,6 +33,17 @@ public class AuthUsuarioService {
             "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
     );
 
+    private static final Pattern PASSWORD_SEGURA = Pattern.compile(
+            "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$"
+    );
+
+    private void validarPasswordSegura(String password) {
+        if (password == null || !PASSWORD_SEGURA.matcher(password).matches()) {
+            throw new IllegalArgumentException(
+                    "La contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y símbolo.");
+        }
+    }
+
     public AuthUsuarioService(UsuarioRepository usuarioRepo, EmpresaRepository empresaRepo,
                               RolRepository rolRepo, PasswordEncoder passwordEncoder) {
         this.usuarioRepo = usuarioRepo;
@@ -114,6 +125,8 @@ public class AuthUsuarioService {
             throw new IllegalArgumentException("El correo electrónico ya está en uso.");
         }
 
+        validarPasswordSegura(datos.get("password"));
+
         Empresa emp = new Empresa();
         emp.setRutEmpresa(rutEmpresa);
         emp.setRazonSocial(datos.get("razonSocial"));
@@ -157,6 +170,7 @@ public class AuthUsuarioService {
         if (u.getTokenRecuperacion() == null || !u.getTokenRecuperacion().equals(token)) {
             throw new IllegalArgumentException("Código de verificación inválido o expirado.");
         }
+        validarPasswordSegura(nuevaPassword);
         u.setPasswordHash(passwordEncoder.encode(nuevaPassword));
         u.setTokenRecuperacion(null);
         usuarioRepo.save(u);
@@ -195,9 +209,7 @@ public class AuthUsuarioService {
         }
 
         String password = datos.get("password");
-        if (password == null || password.trim().length() < 6) {
-            throw new IllegalArgumentException("La contraseña inicial es obligatoria y debe tener al menos 6 caracteres.");
-        }
+        validarPasswordSegura(password);
 
         Rol rol = rolRepo.findByNombreRol(datos.get("nombreRol"))
                 .orElseThrow(() -> new IllegalArgumentException("Rol inválido."));
@@ -262,9 +274,7 @@ public class AuthUsuarioService {
 
         if (datos.get("password") != null && !datos.get("password").toString().isBlank()) {
             String nuevaPass = datos.get("password").toString();
-            if (nuevaPass.length() < 6) {
-                throw new IllegalArgumentException("La contraseña debe tener al menos 6 caracteres.");
-            }
+            validarPasswordSegura(nuevaPass);
             u.setPasswordHash(passwordEncoder.encode(nuevaPass));
         }
 
@@ -324,9 +334,7 @@ public class AuthUsuarioService {
 
     @Transactional
     public void cambiarPasswordEnSesion(UsuarioPrincipal sesion, String passwordActual, String nuevaPassword) {
-        if (nuevaPassword == null || nuevaPassword.length() < 6) {
-            throw new IllegalArgumentException("La nueva contraseña debe tener al menos 6 caracteres.");
-        }
+        validarPasswordSegura(nuevaPassword);
         Usuario u = usuarioRepo.findById(sesion.idUsuario())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario en sesión no encontrado."));
 

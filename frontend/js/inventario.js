@@ -1,6 +1,14 @@
 /* AndesB2B · Gestionar catálogo propio (vendedor)
    Script: comparte el ámbito global con los demás archivos de /js (ver orden de carga en panel.html). */
 // GESTIONAR CATÁLOGO (VENDEDOR)
+// Etiqueta de alerta junto al stock (usa UMBRAL_STOCK_BAJO de dashboard.js)
+function badgeStock(p) {
+    const stock = Number(p.stockDisponible);
+    if (stock <= 0) return ' <span class="badge badge-danger">Sin stock</span>';
+    if (stock <= UMBRAL_STOCK_BAJO) return ' <span class="badge badge-warn">Stock bajo</span>';
+    return '';
+}
+
 async function cargarMiCatalogo() {
     const res = await fetch(`${API_URL}/catalogo/mi-inventario`);
     miInventarioGlobal = res.ok ? await res.json() : [];
@@ -21,13 +29,18 @@ window.cambiarVistaInventario = function (vista) {
     renderizarMiInventario();
 };
 
+const pgInventario = crearPaginador('pag-inventario', [10, 20, 50], () => renderizarMiInventario());
+
 function renderizarMiInventario() {
     const tbody = document.getElementById('tabla-mi-catalogo');
     const grid = document.getElementById('contenedor-inv-tarjetas');
     if (tbody) tbody.innerHTML = '';
     if (grid) grid.innerHTML = '';
 
-    miInventarioGlobal.forEach(p => {
+    const visiblesInv = paginar(pgInventario, miInventarioGlobal);
+    const refInv = document.getElementById('contenedor-inv-tarjetas');
+    dibujarPaginacion(pgInventario, refInv, miInventarioGlobal.length);
+    visiblesInv.forEach(p => {
         const idProd = Number(p.idProducto);
         const imagenes = obtenerListaImagenesProducto(p);
         const imgPortada = esc(imagenes[0]);
@@ -42,7 +55,7 @@ function renderizarMiInventario() {
                 </td>
                 <td>${esc(p.categoria ? p.categoria.nombreCategoria : '-')}</td>
                 <td>${formatearCLP(p.precioUnitario)}</td>
-                <td>${Number(p.stockDisponible)} un.</td>
+                <td>${Number(p.stockDisponible)} un.${badgeStock(p)}</td>
                 <td>
                     <label class="switch"><input type="checkbox" ${p.visible ? 'checked' : ''} onchange="alternarVisibilidadProducto(${idProd}, this.checked)">
                         <span class="slider"></span>
@@ -71,7 +84,7 @@ function renderizarMiInventario() {
                 <h4 style="margin-top:8px;">${esc(p.nombreProducto)}</h4>
                 <small>${esc(p.categoria ? p.categoria.nombreCategoria : '-')}</small>
                 <div class="product-price">${formatearCLP(p.precioUnitario)}</div>
-                <p style="font-size:0.85rem; margin-bottom:10px;">Stock: <strong>${Number(p.stockDisponible)} un.</strong></p>
+                <p style="font-size:0.85rem; margin-bottom:10px;">Stock: <strong>${Number(p.stockDisponible)} un.</strong>${badgeStock(p)}</p>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
                     <button type="button" class="btn btn-primary btn-sm" onclick="seleccionarProductoEditar(${idProd})">Editar</button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${idProd})">Eliminar</button>
@@ -88,6 +101,9 @@ window.seleccionarProductoEditar = function (idProducto) {
 };
 
 window.alternarVisibilidadProducto = async function (idProducto, nuevoEstadoVisible) {
+    if (!await confirmarAccion(nuevoEstadoVisible
+        ? '¿Publicar este producto en el catálogo? Quedará visible para los compradores.'
+        : '¿Pasar este producto a borrador? Dejará de ser visible para los compradores.')) return;
     const res = await fetch(`${API_URL}/catalogo/productos/${idProducto}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -129,7 +145,8 @@ window.abrirNuevoProducto = function () {
 window.eliminarProducto = async function (idProducto) {
     const prod = miInventarioGlobal.find(item => item.idProducto === idProducto);
     const etiqueta = prod ? `${prod.sku} - ${prod.nombreProducto}` : `#${idProducto}`;
-    if (!confirm(`¿Estás seguro de eliminar el producto "${etiqueta}" del inventario?`)) {
+    if (!await confirmarAccion(`¿Estás seguro de eliminar el producto "${etiqueta}" del inventario? Esta acción no se puede deshacer.`,
+        { titulo: 'Eliminar producto', textoSi: 'Sí, eliminar', peligro: true })) {
         return;
     }
     const res = await fetch(`${API_URL}/catalogo/productos/${idProducto}`, {
@@ -210,6 +227,9 @@ window.guardarProducto = async function (e) {
     if (imagenesFormularioActual.length > 3) {
         return mostrarAlerta('No puedes guardar más de 3 imágenes por producto.', true);
     }
+    if (!await confirmarAccion(idProd
+        ? `¿Guardar los cambios del producto ${skuVal}?`
+        : `¿Registrar el producto ${skuVal} en el inventario?`)) return;
 
     try {
         const guardadas = JSON.parse(localStorage.getItem('imagenesAndesB2B') || '{}');

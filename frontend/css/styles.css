@@ -174,6 +174,11 @@ input:focus, select:focus {
 }
 
 .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    align-self: flex-start;
+    overflow-y: auto;
     width: 260px;
     background-color: #0f172a;
     color: #f8fafc;
@@ -231,8 +236,9 @@ input:focus, select:focus {
 /* Contenido Principal */
 .main-content {
     flex-grow: 1;
+    min-width: 0;
     padding: 24px 32px;
-    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 .topbar {
@@ -361,14 +367,14 @@ td {
 /* Diseño Responsivo */
 @media (max-width: 900px) {
     .app-layout { flex-direction: column; }
-    .sidebar { width: 100%; }
+    .sidebar { width: 100%; position: static; height: auto; overflow-y: visible; }
     .auth-grid, .form-grid-2, .form-grid-3, .kpi-grid, .filter-bar {
         grid-template-columns: 1fr;
     }
     .topbar { flex-direction: column; gap: 10px; align-items: flex-start; }
 }
 
-/* ELEMENTOS FIELES A LOS PROTOTIPOS DEL CAPÍTULO V */
+/* COMPONENTES DEL PANEL: rutas de navegación, indicadores (KPI) y cabeceras de tarjeta */
 .breadcrumb-text {
     display: block;
     font-size: 0.78rem;
@@ -410,6 +416,7 @@ td {
 }
 
 .alert-item.warn { border-left-color: #f59e0b; background: #fffbeb; }
+.alert-item.danger { border-left-color: #dc2626; background: #fef2f2; }
 .alert-item.ok { border-left-color: #10b981; background: #f0fdf4; }
 
 .filter-bar-4 {
@@ -450,7 +457,7 @@ td {
     border-color: #34d399;
 }
 
-/* 4 Cajas Financieras de Liquidación (Pantallazos 5 y 12) */
+/* 4 Cajas Financieras de Liquidación */
 .fin-boxes-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -481,7 +488,7 @@ td {
 .fin-box-green { background: #f0fdf4; border-color: #86efac; }
 .fin-box-green strong { color: #15803d; }
 
-/* Interruptor Deslizante (Toggle Switch Pantallazo 14) */
+/* Interruptor Deslizante */
 .switch {
     position: relative;
     display: inline-block;
@@ -640,3 +647,183 @@ input:checked + .slider:before { transform: translateX(20px); }
     border-color: #0284c7;
     opacity: 1;
 }
+
+/* Cuadro de confirmación Sí / No */
+.modal-confirmar-fondo {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+}
+
+.modal-confirmar {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+}
+
+.modal-confirmar h3 {
+    margin: 0 0 10px;
+}
+
+.modal-confirmar p {
+    margin: 0 0 20px;
+    white-space: pre-line;
+    color: #334155;
+}
+
+.modal-confirmar-botones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Mensajes flotantes: siempre visibles aunque la página esté desplazada */
+#app-alert, #public-alert {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10000;
+    max-width: min(420px, calc(100vw - 32px));
+    margin: 0;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+}
+
+#app-alert.hidden, #public-alert.hidden {
+    display: none;
+}
+
+/* Barra del carrito anclada al desplazarse por el catálogo */
+#barra-carrito-resumen {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
+}
+
+/* Carrito fijo en la parte inferior de la pantalla, con desplazamiento propio */
+.carrito-fijo {
+    position: fixed;
+    left: 260px;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    max-height: 78vh;
+    overflow-y: auto;
+    z-index: 1000;
+    border-radius: 14px 14px 0 0;
+    border-top: 4px solid #10b981;
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.25);
+}
+
+.carrito-fijo .cart-footer {
+    position: sticky;
+    bottom: 0;
+    background: #ffffff;
+    padding: 12px 0 4px;
+}
+
+/* Deja espacio al final del catalogo para que el carrito no tape las ultimas tarjetas */
+body.carrito-abierto .main-content {
+    padding-bottom: 80vh;
+}
+
+@media (max-width: 900px) {
+    .carrito-fijo { left: 0; }
+}
+
+/* Tarjetas de producto con estructura uniforme */
+.product-grid { align-items: stretch; }
+
+.product-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.pi-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    height: 24px;
+}
+
+.pi-head .badge { flex-shrink: 0; white-space: nowrap; }
+
+.pi-categoria {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: right;
+}
+
+.pi-titulo {
+    margin: 8px 0 6px;
+    line-height: 1.3;
+    height: 2.6em;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.pi-tienda,
+.pi-origen {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    line-height: 1.35;
+    height: 2.7em;
+}
+
+.pi-tienda { color: #0f172a; font-weight: 700; margin-top: 2px; }
+.pi-origen { color: #475569; margin-top: 2px; }
+
+.product-item .product-price { margin: 10px 0 4px; }
+
+.pi-stock {
+    font-size: 0.85rem;
+    margin: 0 0 12px;
+}
+
+.pi-boton { margin-top: auto; }
+
+
+/* Panel inferior fijo del cotizador */
+.panel-fijo-inferior {
+    position: fixed;
+    left: 260px;
+    right: 0;
+    bottom: 0;
+    max-height: 78vh;
+    overflow-y: auto;
+    z-index: 1000;
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
+}
+body.panel-inferior-abierto .main-content { padding-bottom: 80vh; }
+@media (max-width: 900px) { .panel-fijo-inferior { left: 0; } }
+
+/* Paginación */
+.paginacion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 4px;
+    font-size: 0.9rem;
+}
+.paginacion.hidden { display: none; }
+.paginacion-botones { display: flex; align-items: center; gap: 10px; }
+.paginacion-tamano select { margin-left: 4px; padding: 4px 6px; }
